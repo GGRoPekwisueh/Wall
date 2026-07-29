@@ -1,0 +1,148 @@
+-- ==========================================
+-- WALL HOP SCRIPT (SCROLLABLE + RAINBOW BG)
+-- ==========================================
+
+-- ลบ UI เก่าถ้ามีอยู่
+if game.CoreGui:FindFirstChild("WallHopUI") then
+    game.CoreGui.WallHopUI:Destroy()
+end
+
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LP = Players.LocalPlayer
+
+-- สถานะการเปิด/ปิด Wall Hop
+local wallHopEnabled = false
+
+-- ==========================================
+-- 1. สร้าง UI
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "WallHopUI"
+
+-- ปุ่มวงกลมตัว "W" (ปุ่มเปิด/ปิด UI)
+local WButton = Instance.new("TextButton", ScreenGui)
+WButton.Size = UDim2.new(0, 50, 0, 50)
+WButton.Position = UDim2.new(0.05, 0, 0.4, 0)
+WButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+WButton.Text = "W"
+WButton.TextColor3 = Color3.new(1, 1, 1)
+WButton.TextSize = 28
+WButton.Font = Enum.Font.SourceSansBold
+WButton.Active = true
+WButton.Draggable = true
+Instance.new("UICorner", WButton).CornerRadius = UDim.new(1, 0)
+
+-- หน้าต่างเมนูหลัก (พื้นหลังสายรุ้ง)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 230, 0, 160)
+MainFrame.Position = UDim2.new(0.12, 0, 0.35, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- สีเริ่มต้น
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = false
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+-- หัวข้อ UI
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Text = "Wall Hop Menu"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 18
+Title.Font = Enum.Font.SourceSansBold
+Title.BackgroundTransparency = 1
+
+-- สโครลเลอร์ (ScrollingFrame สำหรับเลื่อนขึ้น-ลงได้)
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(1, -10, 1, -40)
+Scroll.Position = UDim2.new(0, 5, 0, 35)
+Scroll.CanvasSize = UDim2.new(0, 0, 1.5, 0) -- กำหนดความยาวพื้นที่เลื่อน
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 5
+Scroll.Active = true
+
+-- ปุ่มสลับเปิด/ปิด Wall Hop (อยู่ในส่วนที่เลื่อนได้)
+local ToggleBtn = Instance.new("TextButton", Scroll)
+ToggleBtn.Size = UDim2.new(0.9, 0, 0, 45)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0, 10)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0) -- สีแดงตอนปิด
+ToggleBtn.Text = "Wall Hop : ปิด"
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.TextSize = 18
+ToggleBtn.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+
+-- ==========================================
+-- 2. ระบบพื้นหลังสายรุ้ง (Rainbow RGB)
+-- ==========================================
+local hue = 0
+RunService.RenderStepped:Connect(function()
+    hue = (hue + 0.005) % 1 -- ความเร็วในการเปลี่ยนสี
+    MainFrame.BackgroundColor3 = Color3.fromHSV(hue, 0.8, 0.9)
+end)
+
+-- ==========================================
+-- 3. INTERACTION & LOGIC
+-- ==========================================
+
+-- กดปุ่ม W เพื่อซ่อน/แสดง เมนู
+WButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- กดปุ่มสลับสถานะเปิด/ปิด Wall Hop
+ToggleBtn.MouseButton1Click:Connect(function()
+    wallHopEnabled = not wallHopEnabled
+    if wallHopEnabled then
+        ToggleBtn.Text = "Wall Hop : เปิด"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0) -- สีเขียวตอนเปิด
+    else
+        ToggleBtn.Text = "Wall Hop : ปิด"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0) -- สีแดงตอนปิด
+    end
+end)
+
+-- ระบบ Wall Hop
+local function doWallHop()
+    if not wallHopEnabled then return end
+    
+    local char = LP.Character
+    if not char then return end
+    
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    
+    if hrp and humanoid then
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterAncestorsCases = {char}
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+
+        local directions = {
+            hrp.CFrame.LookVector,
+            -hrp.CFrame.LookVector,
+            hrp.CFrame.RightVector,
+            -hrp.CFrame.RightVector
+        }
+
+        local isTouchingWall = false
+        for _, dir in pairs(directions) do
+            local ray = workspace:Raycast(hrp.Position, dir * 2.5, raycastParams)
+            if ray then
+                isTouchingWall = true
+                break
+            end
+        end
+
+        if isTouchingWall then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end
+
+UserInputService.JumpRequest:Connect(function()
+    doWallHop()
+end)
+
+print("Wall Hop Rainbow UI Loaded!")
